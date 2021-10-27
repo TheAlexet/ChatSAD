@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+    </style>
+  </head>
+  <body>
+    <h4 id="userlist">Connected users: </h4>
+    <ul id="messages"></ul>
+    <p id="writinglabel"></p>
+    <form action="">
+      <input id="m" autocomplete="off" onkeyup="onKeyDownNotEnter()" placeholder="No spaces allowed for your username" pattern="[^' ']+"/><button id="btn">Choose a nickname</button>
+    </form>
+    <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+      var isFirst = true;
+      var socket = io();
+      var typing = false;
+      var timeout = undefined;
+      $('form').submit(function(){
+        if(isFirst) {
+          document.getElementById("m").removeAttribute("pattern");
+          document.getElementById("m").removeAttribute("placeholder");
+          socket.emit('username validation', $('#m').val());
+        } else if ($('#m').val().indexOf('/') == 0) {  
+          var privateMessage = document.getElementById('m').value.substring(document.getElementById('m').value.indexOf(' ') + 1);
+          console.log(privateMessage);
+
+          var receiver = document.getElementById('m').value.split('/').pop().split(' ')[0];
+          console.log(receiver);
+
+          socket.emit('private', {msg: privateMessage, to: receiver})
+          $('#messages').append($('<li>').text('[private: to ' + receiver + '] ' + privateMessage));
+        } else if ($('#m').val() !== ''){
+          socket.emit('chat message', $('#m').val());
+          $('#messages').append($('<li>').text($('#m').val()));
+        }
+        $('#m').val('');
+        return false;
+      });
+      
+      socket.on('chat message', function(msg){
+        
+        $('#messages').append($('<li>').text(msg));
+      });
+     
+      socket.on('user connect', function(msg){
+        $('#messages').append($('<li>').text(msg + ' has entered the chat'));
+      });
+      
+      socket.on('private', function(data){
+        $('#messages').append($('<li>').text('[private: ' + data.from + '] ' + data.msg));
+      })
+
+      socket.on('user disconnected', function(msg, users){
+        $('#messages').append($('<li>').text(msg + ' has left the chat'));
+        $('#userlist').text('Connected users: ');
+        users.forEach(user => {
+          $('#userlist').append(user+ ', ');
+        });
+      });
+
+      socket.on('new user entered', function(msg, users){
+        $('#userlist').text('Connected users: ');
+        users.forEach(user => {
+          $('#userlist').append(user + ', ');
+        });
+      });
+      socket.on('user connect local', function(msg){
+        $('#messages').append($('<li>').text(msg));
+        isFirst = false;
+        $('#btn').text('Send');
+      });
+      if(!isFirst && $('#m').val() !== ''){
+        socket.emit('user typing');
+      }else{
+        socket.emit('user not typing');
+      }
+
+      function onKeyDownNotEnter(){
+        if(typing == false && !isFirst) {
+          typing = true
+          socket.emit('typing');
+          timeout = setTimeout(timeoutFunction, 2000);
+        } else {
+          clearTimeout(timeout);
+          timeout = setTimeout(timeoutFunction, 1000);
+        }
+
+      }
+
+      function timeoutFunction(){
+        typing = false;
+        socket.emit('not typing');
+      }
+
+      
+
+      socket.on('user writing', function(msg){
+        $('#writinglabel').text(msg);
+      })
+
+      socket.on('user not writing', function(){
+        $('#writinglabel').text('');
+      })
+    </script>
+  </body>
+</html>
