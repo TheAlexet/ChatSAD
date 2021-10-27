@@ -14,9 +14,9 @@
     </style>
   </head>
   <body>
-    <h4 id="userlist">Connected users: </h4>
+    <h4 id="userlist">Connected users: </h4> <!-- Show the list of all the users connected to the app -->
     <ul id="messages"></ul>
-    <p id="writinglabel"></p>
+    <p id="writinglabel"></p> <!-- Show the message "User X is typing" -->
     <form action="">
       <input id="m" autocomplete="off" onkeyup="onKeyDownNotEnter()" placeholder="No spaces allowed for your username" pattern="[^' ']+"/><button id="btn">Choose a nickname</button>
     </form>
@@ -28,11 +28,11 @@
       var typing = false;
       var timeout = undefined;
       $('form').submit(function(){
-        if(isFirst) {
+        if(isFirst) { //User not connected yet. Username has to be chosen
           document.getElementById("m").removeAttribute("pattern");
           document.getElementById("m").removeAttribute("placeholder");
           socket.emit('username validation', $('#m').val());
-        } else if ($('#m').val().indexOf('/') == 0) {  
+        } else if ($('#m').val().indexOf('/') == 0) { //Private message is going to be sent
           var privateMessage = document.getElementById('m').value.substring(document.getElementById('m').value.indexOf(' ') + 1);
           console.log(privateMessage);
 
@@ -41,7 +41,7 @@
 
           socket.emit('private', {msg: privateMessage, to: receiver})
           $('#messages').append($('<li>').text('[private: to ' + receiver + '] ' + privateMessage));
-        } else if ($('#m').val() !== ''){
+        } else if ($('#m').val() !== ''){ //Normal message sent to all users
           socket.emit('chat message', $('#m').val());
           $('#messages').append($('<li>').text($('#m').val()));
         }
@@ -49,19 +49,22 @@
         return false;
       });
       
+      //Prints the chat message in the screen
       socket.on('chat message', function(msg){
-        
         $('#messages').append($('<li>').text(msg));
       });
      
+      //Sends the welcome message when a new user connects
       socket.on('user connect', function(msg){
         $('#messages').append($('<li>').text(msg + ' has entered the chat'));
       });
       
+      //Prints the private message in the screen of the receiver
       socket.on('private', function(data){
         $('#messages').append($('<li>').text('[private: ' + data.from + '] ' + data.msg));
       })
 
+      //Prints the disconnected message in the screen and updates the users list
       socket.on('user disconnected', function(msg, users){
         $('#messages').append($('<li>').text(msg + ' has left the chat'));
         $('#userlist').text('Connected users: ');
@@ -70,23 +73,22 @@
         });
       });
 
+      //Updates the list of connected users when a new one enters the chat
       socket.on('new user entered', function(msg, users){
         $('#userlist').text('Connected users: ');
         users.forEach(user => {
           $('#userlist').append(user + ', ');
         });
       });
+
+      //Changes the button text from 'Choose a nickname' to 'Send' when the user connects
       socket.on('user connect local', function(msg){
         $('#messages').append($('<li>').text(msg));
         isFirst = false;
         $('#btn').text('Send');
       });
-      if(!isFirst && $('#m').val() !== ''){
-        socket.emit('user typing');
-      }else{
-        socket.emit('user not typing');
-      }
 
+      //Checks if the user is typing
       function onKeyDownNotEnter(){
         if(typing == false && !isFirst) {
           typing = true
@@ -105,11 +107,12 @@
       }
 
       
-
+      //Updates the writing label if a user is writing
       socket.on('user writing', function(msg){
         $('#writinglabel').text(msg);
       })
 
+      //Updates the writing label if nobody is writing
       socket.on('user not writing', function(){
         $('#writinglabel').text('');
       })
